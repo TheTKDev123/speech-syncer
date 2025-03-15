@@ -1,6 +1,38 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+// Define the SpeechRecognition interface
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+  error: { message: string; error: string };
+}
+
+interface SpeechRecognitionResult {
+  transcript: string;
+  confidence: number;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult[];
+  [index: number]: SpeechRecognitionResult[];
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionEvent) => void) | null;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+}
+
 interface SpeechRecognitionHook {
   transcript: string;
   listening: boolean;
@@ -23,8 +55,8 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
       return;
     }
     
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognitionRef.current = new SpeechRecognition();
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognitionRef.current = new SpeechRecognitionAPI();
     
     if (recognitionRef.current) {
       recognitionRef.current.continuous = true;
@@ -118,7 +150,7 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
 // TypeScript declarations for Web Speech API
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
   }
 }
