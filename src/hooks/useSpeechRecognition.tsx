@@ -78,6 +78,7 @@ export function useSpeechRecognition(): SpeechRecognitionHook {
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
+          // Check isFinal property from the WebSpeechAPI
           if (event.results[i].isFinal) {
             finalTranscript += transcript + ' ';
           } else {
@@ -153,7 +154,7 @@ declare global {
     webkitSpeechRecognition: new () => SpeechRecognition;
   }
   
-  // Add this interface to fix the isFinal property error
+  // Update this interface to include the isFinal property
   interface SpeechRecognitionResultList {
     [index: number]: {
       isFinal: boolean;
