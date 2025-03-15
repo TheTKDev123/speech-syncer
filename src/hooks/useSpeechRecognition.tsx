@@ -11,7 +11,6 @@ interface SpeechRecognitionEvent extends Event {
 interface SpeechRecognitionResult {
   transcript: string;
   confidence: number;
-  isFinal: boolean;
 }
 
 interface SpeechRecognitionResultList {
@@ -152,5 +151,13 @@ declare global {
   interface Window {
     SpeechRecognition: new () => SpeechRecognition;
     webkitSpeechRecognition: new () => SpeechRecognition;
+  }
+  
+  // Add this interface to fix the isFinal property error
+  interface SpeechRecognitionResultList {
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: SpeechRecognitionResult;
+    };
   }
 }
