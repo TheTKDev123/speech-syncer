@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 // Define the SpeechRecognition interface
@@ -13,10 +12,15 @@ interface SpeechRecognitionResult {
   confidence: number;
 }
 
+interface SpeechRecognitionResultItem {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionResult;
+}
+
 interface SpeechRecognitionResultList {
   length: number;
   item(index: number): SpeechRecognitionResult[];
-  [index: number]: SpeechRecognitionResult[];
+  [index: number]: SpeechRecognitionResultItem;
 }
 
 interface SpeechRecognition extends EventTarget {
@@ -152,13 +156,5 @@ declare global {
   interface Window {
     SpeechRecognition: new () => SpeechRecognition;
     webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-  
-  // Update this interface to include the isFinal property
-  interface SpeechRecognitionResultList {
-    [index: number]: {
-      isFinal: boolean;
-      [index: number]: SpeechRecognitionResult;
-    };
   }
 }
