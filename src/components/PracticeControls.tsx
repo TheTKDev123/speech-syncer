@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Mic, MicOff, Play, Pause, StopCircle, Book } from 'lucide-react';
-import { getPromptText } from '@/utils/scriptAnalysis';
 
 interface PracticeControlsProps {
   script: string;
@@ -30,27 +29,20 @@ const PracticeControls: React.FC<PracticeControlsProps> = ({
   isPaused = false
 }) => {
   const [isPracticing, setIsPracticing] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [promptText, setPromptText] = useState('');
   const [progress, setProgress] = useState(0);
   const [lastActivity, setLastActivity] = useState(0);
-  const promptTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Clear any existing timeouts when unmounting
+  // Update practice status
   useEffect(() => {
-    return () => {
-      if (promptTimeoutRef.current) {
-        clearTimeout(promptTimeoutRef.current);
-      }
-    };
-  }, []);
+    // User is practicing if they're listening or paused
+    setIsPracticing(isListening || isPaused);
+  }, [isListening, isPaused]);
   
   // Handle practice start/stop
   const handleTogglePractice = () => {
     if (isPracticing) {
       setIsPracticing(false);
       onStop();
-      setShowPrompt(false);
     } else {
       setIsPracticing(true);
       onStart();
@@ -69,53 +61,22 @@ const PracticeControls: React.FC<PracticeControlsProps> = ({
   
   // Reset everything
   const handleReset = () => {
-    setIsPracticing(false);
-    setShowPrompt(false);
-    setProgress(0);
     onReset();
   };
   
-  // Check for pauses and update progress
+  // Calculate progress based on spoken words
   useEffect(() => {
-    if (!isPracticing) return;
+    if (!isPracticing || !transcript) return;
     
     // Update last activity time when new transcript is detected
-    if (transcript) {
-      setLastActivity(Date.now());
-      setShowPrompt(false);
-      
-      if (promptTimeoutRef.current) {
-        clearTimeout(promptTimeoutRef.current);
-        promptTimeoutRef.current = null;
-      }
-      
-      // Calculate rough progress (very simplified - would be more sophisticated in real app)
-      const scriptWords = script.split(/\s+/).filter(Boolean).length;
-      const transcriptWords = transcript.split(/\s+/).filter(Boolean).length;
-      const newProgress = Math.min(100, Math.round((transcriptWords / scriptWords) * 100));
-      setProgress(newProgress);
-    }
+    setLastActivity(Date.now());
     
-    // Check for pauses
-    const pauseCheckInterval = setInterval(() => {
-      const now = Date.now();
-      const timeSinceLastActivity = now - lastActivity;
-      
-      // If paused for more than 10 seconds, show a prompt
-      if (timeSinceLastActivity > 10000 && !showPrompt) {
-        // Find where in the script the user might be
-        const transcriptWords = transcript.split(/\s+/).filter(Boolean);
-        const lastWordIndex = transcriptWords.length;
-        
-        // Get the next few words as a prompt
-        const nextPrompt = getPromptText(script, lastWordIndex);
-        setPromptText(nextPrompt);
-        setShowPrompt(true);
-      }
-    }, 1000);
-    
-    return () => clearInterval(pauseCheckInterval);
-  }, [isPracticing, transcript, script, lastActivity, showPrompt]);
+    // Calculate rough progress (very simplified)
+    const scriptWords = script.split(/\s+/).filter(Boolean).length;
+    const transcriptWords = transcript.split(/\s+/).filter(Boolean).length;
+    const newProgress = Math.min(100, Math.round((transcriptWords / scriptWords) * 100));
+    setProgress(newProgress);
+  }, [isPracticing, transcript, script]);
   
   return (
     <div className="space-y-4">
@@ -127,19 +88,6 @@ const PracticeControls: React.FC<PracticeControlsProps> = ({
         </div>
         <Progress value={progress} className="h-2" />
       </div>
-      
-      {/* Prompt card */}
-      {showPrompt && (
-        <Card className="p-4 bg-accent/10 border border-accent/20 animate-pulse-soft">
-          <div className="flex items-start space-x-3">
-            <Book className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium mb-1">Need a hint?</p>
-              <p className="text-sm text-muted-foreground">&ldquo;{promptText}&rdquo;</p>
-            </div>
-          </div>
-        </Card>
-      )}
       
       {/* Control buttons */}
       <div className="flex flex-wrap gap-3 justify-center sm:justify-start">

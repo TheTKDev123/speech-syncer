@@ -63,7 +63,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({
         </div>
         
         {/* Struggle points */}
-        {results.strugglePoints.length > 0 && (
+        {results.strugglePoints.length > 0 ? (
           <div className="space-y-3">
             <h3 className="text-lg font-medium">Areas to Focus On</h3>
             <div className="space-y-3">
@@ -95,6 +95,11 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-muted-foreground">No significant struggle points detected!</p>
+            <p className="text-sm">Great job with your practice session.</p>
           </div>
         )}
         

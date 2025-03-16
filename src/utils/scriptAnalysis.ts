@@ -58,38 +58,66 @@ function calculateAccuracy(originalWords: string[], spokenWords: string[]): numb
   if (originalWords.length === 0) return 0;
   
   let correctWords = 0;
+  let totalChecked = 0;
   
-  // Simple word-by-word comparison
-  for (let i = 0; i < Math.min(originalWords.length, spokenWords.length); i++) {
-    if (originalWords[i] === spokenWords[i]) {
-      correctWords++;
-    }
+  // Improved word-by-word comparison
+  const originalWordCounts = countWords(originalWords);
+  const spokenWordCounts = countWords(spokenWords);
+  
+  // Compare word frequencies
+  for (const [word, count] of Object.entries(originalWordCounts)) {
+    const spokenCount = spokenWordCounts[word] || 0;
+    correctWords += Math.min(count, spokenCount);
+    totalChecked += count;
   }
   
-  return Math.round((correctWords / originalWords.length) * 100);
+  return Math.round((correctWords / totalChecked) * 100);
+}
+
+// Count occurrences of each word
+function countWords(words: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  
+  for (const word of words) {
+    counts[word] = (counts[word] || 0) + 1;
+  }
+  
+  return counts;
 }
 
 // Find missed and added words
-function findWordDifferences(originalWords: string[], spokenWords: string[]) {
+function findWordDifferences(originalWords: string[], spokenWords: string[]): {
+  missedWords: string[];
+  addedWords: string[];
+} {
   const missedWords: string[] = [];
   const addedWords: string[] = [];
   
-  // This is a simplified approach - in a real app, you would want to use
-  // a more sophisticated algorithm like Levenshtein distance or Smith-Waterman
+  // Compare word frequencies
+  const originalWordCounts = countWords(originalWords);
+  const spokenWordCounts = countWords(spokenWords);
   
-  // Find words in original that aren't in spoken
-  originalWords.forEach(word => {
-    if (!spokenWords.includes(word)) {
-      missedWords.push(word);
+  // Find words in original that are missing or underrepresented in spoken
+  for (const [word, count] of Object.entries(originalWordCounts)) {
+    const spokenCount = spokenWordCounts[word] || 0;
+    if (spokenCount < count) {
+      // Add the word to missedWords for each missing occurrence
+      for (let i = 0; i < count - spokenCount; i++) {
+        missedWords.push(word);
+      }
     }
-  });
+  }
   
-  // Find words in spoken that aren't in original
-  spokenWords.forEach(word => {
-    if (!originalWords.includes(word)) {
-      addedWords.push(word);
+  // Find words in spoken that aren't in original or are overrepresented
+  for (const [word, count] of Object.entries(spokenWordCounts)) {
+    const originalCount = originalWordCounts[word] || 0;
+    if (originalCount < count) {
+      // Add the word to addedWords for each extra occurrence
+      for (let i = 0; i < count - originalCount; i++) {
+        addedWords.push(word);
+      }
     }
-  });
+  }
   
   return { missedWords, addedWords };
 }
@@ -100,26 +128,54 @@ function identifyStrugglePoints(
   pauses: { index: number, duration: number }[]
 ): StrugglePoint[] {
   const strugglePoints: StrugglePoint[] = [];
+  const words = originalScript.split(/\s+/);
   
-  // Convert pauses into struggle points
-  pauses.forEach(pause => {
-    if (pause.duration >= 3000) { // 3 seconds or more
-      // Get the context (some words before and after the pause)
-      const words = originalScript.split(/\s+/);
-      const pauseIndex = pause.index;
-      
-      // Get up to 3 words before and after the pause point
-      const startIndex = Math.max(0, pauseIndex - 3);
-      const endIndex = Math.min(words.length - 1, pauseIndex + 3);
-      
-      const text = words.slice(startIndex, endIndex + 1).join(' ');
-      
-      strugglePoints.push({
-        index: pauseIndex,
-        text,
-        pauseDuration: pause.duration
-      });
+  // Group nearby pauses together
+  const significantPauses = pauses
+    .filter(pause => pause.duration >= 5000) // Only consider pauses of 5+ seconds
+    .sort((a, b) => a.index - b.index);
+  
+  if (significantPauses.length === 0) {
+    return strugglePoints;
+  }
+  
+  // Combine pauses that are close to each other
+  let currentGroup: { index: number, duration: number }[] = [significantPauses[0]];
+  const pauseGroups: { index: number, duration: number }[][] = [currentGroup];
+  
+  for (let i = 1; i < significantPauses.length; i++) {
+    const currentPause = significantPauses[i];
+    const lastPause = currentGroup[currentGroup.length - 1];
+    
+    // If this pause is within 5 words of the last one, add to current group
+    if (currentPause.index - lastPause.index <= 5) {
+      currentGroup.push(currentPause);
+    } else {
+      // Start a new group
+      currentGroup = [currentPause];
+      pauseGroups.push(currentGroup);
     }
+  }
+  
+  // Convert pause groups to struggle points
+  pauseGroups.forEach((group) => {
+    // Use the middle of the group as the center
+    const totalDuration = group.reduce((sum, pause) => sum + pause.duration, 0);
+    const middleIndex = Math.floor(group.length / 2);
+    const centerIndex = group[middleIndex].index;
+    
+    // Get a context window of words
+    const contextSize = 5; // words before and after
+    const startIndex = Math.max(0, centerIndex - contextSize);
+    const endIndex = Math.min(words.length, centerIndex + contextSize);
+    
+    const text = words.slice(startIndex, endIndex).join(' ');
+    
+    strugglePoints.push({
+      index: centerIndex,
+      text,
+      pauseDuration: totalDuration
+    });
   });
   
   return strugglePoints;
