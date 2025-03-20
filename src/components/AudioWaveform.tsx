@@ -78,28 +78,62 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
       
       analyser.getByteFrequencyData(dataArray);
       
+      // Make the background fully transparent
       canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
       
-      // Create a gradient for the visualizer
-      const gradient = canvasCtx.createLinearGradient(0, 0, WIDTH, 0);
-      gradient.addColorStop(0, '#9b87f5');   // Purple
+      // Create a gradient for the visualizer with more vibrant colors
+      const gradient = canvasCtx.createLinearGradient(0, HEIGHT / 2, WIDTH, HEIGHT / 2);
+      gradient.addColorStop(0, '#8B5CF6');   // Vivid Purple
       gradient.addColorStop(0.5, '#D946EF'); // Magenta Pink
       gradient.addColorStop(1, '#F97316');   // Bright Orange
       
-      canvasCtx.fillStyle = '#1A1F2C'; // Dark background
-      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
+      // Draw the waveform as a smooth curve
+      canvasCtx.beginPath();
       
+      // Start path at the left edge
+      canvasCtx.moveTo(0, HEIGHT);
+      
+      // Calculate bar width based on available data points
       const barWidth = (WIDTH / dataArray.length) * 2.5;
       let x = 0;
       
+      // Draw the top part of the waveform
       for (let i = 0; i < dataArray.length; i++) {
-        const barHeight = (dataArray[i] / 255) * HEIGHT;
+        const barHeight = (dataArray[i] / 255) * HEIGHT * 0.8; // Scale down a bit
+        const y = HEIGHT - barHeight;
         
-        canvasCtx.fillStyle = gradient;
-        canvasCtx.fillRect(x, HEIGHT - barHeight, barWidth, barHeight);
+        if (i === 0) {
+          canvasCtx.moveTo(x, y);
+        } else {
+          // Use quadratic curves for smoother lines
+          const prevX = x - barWidth;
+          canvasCtx.quadraticCurveTo(
+            prevX + barWidth / 2, 
+            HEIGHT - (dataArray[i-1] / 255) * HEIGHT * 0.8, 
+            x, 
+            y
+          );
+        }
         
-        x += barWidth + 1;
+        x += barWidth;
       }
+      
+      // Complete the path back to bottom right and then to bottom left
+      canvasCtx.lineTo(WIDTH, HEIGHT);
+      canvasCtx.lineTo(0, HEIGHT);
+      
+      // Fill with gradient
+      canvasCtx.fillStyle = gradient;
+      canvasCtx.fill();
+      
+      // Add a subtle stroke for definition
+      canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      canvasCtx.lineWidth = 1;
+      canvasCtx.stroke();
+      
+      // Add glow effect
+      canvasCtx.shadowColor = '#D946EF';
+      canvasCtx.shadowBlur = 15;
       
       animationRef.current = requestAnimationFrame(draw);
     };
@@ -114,7 +148,7 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
   }, [analyser, dataArray]);
 
   return (
-    <div className="relative w-full h-32 bg-background/5 rounded-lg overflow-hidden">
+    <div className="relative w-full h-32 overflow-hidden rounded-lg">
       {isListening ? (
         <canvas 
           ref={canvasRef} 
