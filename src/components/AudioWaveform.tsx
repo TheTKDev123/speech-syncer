@@ -81,7 +81,7 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
       analyser.getByteFrequencyData(dataArray);
       
       // Clear the canvas with a dark purple background
-      canvasCtx.fillStyle = 'rgba(255, 255, 255, 1)';
+      canvasCtx.fillStyle = 'rgba(248,250,252,255)';
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
       
       // Set up variables for drawing
