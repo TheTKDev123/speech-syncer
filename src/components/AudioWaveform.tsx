@@ -26,8 +26,9 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
           const source = audioContext.createMediaStreamSource(stream);
           streamAnalyser = audioContext.createAnalyser();
           
-          streamAnalyser.fftSize = 256;
-          streamAnalyser.smoothingTimeConstant = 0.7;
+          // Increase FFT size for more detailed visualization
+          streamAnalyser.fftSize = 512;
+          streamAnalyser.smoothingTimeConstant = 0.5;
           source.connect(streamAnalyser);
           
           const bufferLength = streamAnalyser.frequencyBinCount;
@@ -76,83 +77,60 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
       const WIDTH = canvas.width;
       const HEIGHT = canvas.height;
       
+      // Get frequency data
       analyser.getByteFrequencyData(dataArray);
       
-      // Make the background fully transparent
-      canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      // Clear the canvas with a dark purple background
+      canvasCtx.fillStyle = 'rgba(30, 15, 60, 1)';
+      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
       
-      // Create a gradient for the visualizer with more vibrant colors
-      const gradient = canvasCtx.createLinearGradient(0, HEIGHT / 2, WIDTH, HEIGHT / 2);
-      gradient.addColorStop(0, '#8B5CF6');   // Vivid Purple
-      gradient.addColorStop(0.5, '#D946EF'); // Magenta Pink
-      gradient.addColorStop(1, '#F97316');   // Bright Orange
+      // Set up variables for drawing
+      const barWidth = 2; // Narrower bars
+      const barSpacing = 1; // Space between bars
+      const barCount = Math.min(dataArray.length, Math.floor(WIDTH / (barWidth + barSpacing)));
+      const centerY = HEIGHT / 2;
       
-      // Draw the waveform as a smooth curve
-      canvasCtx.beginPath();
+      // Create gradients for top and bottom parts of the waveform
+      const topGradient = canvasCtx.createLinearGradient(0, 0, WIDTH, 0);
+      topGradient.addColorStop(0, '#8B5CF6');   // Purple
+      topGradient.addColorStop(0.5, '#D946EF'); // Pink
+      topGradient.addColorStop(1, '#F97316');   // Orange
+
+      const bottomGradient = canvasCtx.createLinearGradient(0, 0, WIDTH, 0);
+      bottomGradient.addColorStop(0, '#8B5CF6');   // Purple
+      bottomGradient.addColorStop(0.5, '#D946EF'); // Pink
+      bottomGradient.addColorStop(1, '#F97316');   // Orange
       
-      // Start path at the left edge, but not at the bottom (to avoid the box effect)
-      canvasCtx.moveTo(0, HEIGHT - (dataArray[0] / 255) * HEIGHT * 0.8);
-      
-      // Calculate bar width based on available data points
-      const barWidth = (WIDTH / dataArray.length) * 2.5;
-      let x = 0;
-      
-      // Draw the top part of the waveform
-      for (let i = 0; i < dataArray.length; i++) {
-        const barHeight = (dataArray[i] / 255) * HEIGHT * 0.8; // Scale down a bit
-        const y = HEIGHT - barHeight;
+      // Draw each bar of the waveform
+      for (let i = 0; i < barCount; i++) {
+        // For visual interest, we'll use a multiplier that changes across the width
+        const multiplier = 0.8 + Math.sin(i / barCount * Math.PI) * 0.3;
         
-        if (i === 0) {
-          canvasCtx.moveTo(x, y);
-        } else {
-          // Use quadratic curves for smoother lines
-          const prevX = x - barWidth;
-          canvasCtx.quadraticCurveTo(
-            prevX + barWidth / 2, 
-            HEIGHT - (dataArray[i-1] / 255) * HEIGHT * 0.8, 
-            x, 
-            y
-          );
-        }
+        // Calculate bar height based on frequency data
+        const scaledData = dataArray[i] * multiplier;
+        const barHeight = (scaledData / 255) * (HEIGHT / 2 - 10);
         
-        x += barWidth;
-      }
-      
-      // Don't complete the path to the bottom to avoid the box look
-      // Instead, create a mirror effect for the bottom half
-      
-      // Add the mirrored waveform (inverse of the top part)
-      for (let i = dataArray.length - 1; i >= 0; i--) {
-        const barHeight = (dataArray[i] / 255) * HEIGHT * 0.8;
-        const y = HEIGHT / 2 + barHeight / 2; // Mirror effect centered on middle
+        // Position of this bar
+        const x = (barWidth + barSpacing) * i;
         
-        x -= barWidth;
+        // Add glow effect
+        canvasCtx.shadowColor = '#D946EF';
+        canvasCtx.shadowBlur = 5;
         
-        if (i === dataArray.length - 1) {
-          canvasCtx.lineTo(x, y);
-        } else {
-          const nextX = x + barWidth;
-          canvasCtx.quadraticCurveTo(
-            nextX - barWidth / 2,
-            HEIGHT / 2 + (dataArray[i+1] / 255) * HEIGHT * 0.4,
-            x,
-            y
-          );
+        // Draw top part of the waveform (going up from center)
+        canvasCtx.fillStyle = topGradient;
+        canvasCtx.fillRect(x, centerY - barHeight, barWidth, barHeight);
+        
+        // Draw bottom part of the waveform (going down from center)
+        canvasCtx.fillStyle = bottomGradient;
+        canvasCtx.fillRect(x, centerY, barWidth, barHeight);
+        
+        // Add white line in the center for the "flat line" effect when quiet
+        if (i % 4 === 0) {
+          canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          canvasCtx.fillRect(x, centerY - 0.5, barWidth, 1);
         }
       }
-      
-      // Fill with gradient
-      canvasCtx.fillStyle = gradient;
-      canvasCtx.fill();
-      
-      // Add a subtle stroke for definition
-      canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      canvasCtx.lineWidth = 1;
-      canvasCtx.stroke();
-      
-      // Add glow effect
-      canvasCtx.shadowColor = '#D946EF';
-      canvasCtx.shadowBlur = 15;
       
       animationRef.current = requestAnimationFrame(draw);
     };
@@ -167,12 +145,12 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
   }, [analyser, dataArray]);
 
   return (
-    <div className="relative w-full max-w-3xl mx-auto h-40 overflow-hidden">
+    <div className="relative w-full h-40 overflow-hidden">
       {isListening ? (
         <canvas 
           ref={canvasRef} 
           className="w-full h-full" 
-          width={800} 
+          width={1000} 
           height={200}
         />
       ) : (
