@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,6 @@ const Practice = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   
-  // Load current practice script from localStorage
   useEffect(() => {
     const savedScript = localStorage.getItem('currentPracticeScript');
     if (savedScript) {
@@ -68,17 +66,14 @@ const Practice = () => {
         navigate('/dashboard');
       }
     } else {
-      // No script found, redirect to dashboard
       navigate('/dashboard');
     }
   }, [navigate, toast]);
   
-  // Start practice timer when component mounts
   useEffect(() => {
     if (currentScript && !practiceComplete) {
       practiceStartTimeRef.current = Date.now();
       
-      // Update timer every second
       timerRef.current = setInterval(() => {
         if (!isPaused) {
           setPracticeDuration(Date.now() - practiceStartTimeRef.current);
@@ -93,7 +88,6 @@ const Practice = () => {
     };
   }, [currentScript, isPaused, practiceComplete]);
   
-  // Start listening when component mounts
   useEffect(() => {
     if (currentScript && !listening && !isPaused && !practiceComplete) {
       startListening();
@@ -108,7 +102,6 @@ const Practice = () => {
     };
   }, [currentScript, listening, isPaused, practiceComplete, startListening, stopListening]);
   
-  // Check for pause in speech and provide prompts
   useEffect(() => {
     if (error) {
       toast({
@@ -120,50 +113,41 @@ const Practice = () => {
     }
     
     if (listening && currentScript && !practiceComplete) {
-      // Clear existing timer
       if (pauseTimerRef.current) {
         clearTimeout(pauseTimerRef.current);
       }
       
-      // Update last recorded time when transcript changes
       if (transcript) {
         setLastRecordedTime(Date.now());
         setPromptVisible(false);
       }
       
-      // Set new timer for 10 seconds
       pauseTimerRef.current = setTimeout(() => {
         const currentTime = Date.now();
         const timeSinceLastActivity = currentTime - lastRecordedTime;
         
-        // Only show prompt if user has paused for 10+ seconds
         if (timeSinceLastActivity >= 10000 && listening && currentScript) {
-          // Find where the user is in the script and provide the next few words
           const scriptContent = currentScript.content;
           const words = scriptContent.split(/\s+/);
           
-          // Find rough position in script based on spoken words
           const transcriptWords = transcript.toLowerCase().split(/\s+/);
           let matchIndex = 0;
           
-          // Find last matched word in script (simple approximation)
           for (let i = 0; i < words.length; i++) {
             const scriptWord = words[i].toLowerCase().replace(/[.,!?;:]/g, '');
-            const lastFewWords = transcriptWords.slice(-20); // Consider last 20 words
+            const lastFewWords = transcriptWords.slice(-20);
             
             if (lastFewWords.includes(scriptWord)) {
               matchIndex = Math.max(matchIndex, i);
             }
           }
           
-          // Record this pause for later analysis
           const newPauseData = [...pauseData, {
             index: matchIndex,
             duration: timeSinceLastActivity
           }];
           setPauseData(newPauseData);
           
-          // Get the next few words as a prompt
           const nextIndex = matchIndex + 1;
           lastWordIndexRef.current = nextIndex;
           const promptWords = words.slice(nextIndex, nextIndex + 5).join(' ');
@@ -205,7 +189,6 @@ const Practice = () => {
     setPracticeComplete(true);
     setConfirmEndDialogOpen(false);
     
-    // Save practice data to script history
     if (currentScript) {
       const scripts = JSON.parse(localStorage.getItem('scripts') || '[]');
       const updatedScripts = scripts.map((script: Script) => {
@@ -220,7 +203,6 @@ const Practice = () => {
       
       localStorage.setItem('scripts', JSON.stringify(updatedScripts));
       
-      // Display analysis
       setAnalysisVisible(true);
     }
   };
@@ -238,13 +220,10 @@ const Practice = () => {
   };
   
   const handlePracticeSection = (section: string) => {
-    // This would be used to practice a specific section flagged in analysis
     toast({
       title: "Section practice",
       description: "Focusing on problematic section",
     });
-    
-    // In a real implementation, you'd set up a focused practice session here
   };
   
   if (!currentScript) {
@@ -271,7 +250,7 @@ const Practice = () => {
             </Link>
           </div>
           
-          <div className="mb-6">
+          <div className="mb-6 text-center">
             <h1 className="text-3xl font-bold tracking-tight">{currentScript.title}</h1>
             <p className="text-muted-foreground">
               {practiceComplete 
@@ -283,7 +262,6 @@ const Practice = () => {
           </div>
           
           {practiceComplete && analysisVisible ? (
-            // Show analysis results after practice is complete
             <div className="grid grid-cols-1 gap-6">
               <AnalysisResults 
                 results={analyzeScript(
@@ -307,86 +285,25 @@ const Practice = () => {
               </div>
             </div>
           ) : (
-            // Show practice interface
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card className="h-full">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle>Practice Session</CardTitle>
-                    {!showFullScript && !practiceComplete && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setShowFullScript(true)}
-                      >
-                        Show Script
-                      </Button>
-                    )}
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Audio visualization */}
-                    <AudioWaveform isListening={listening && !isPaused} />
-                    
-                    {/* Prompt area */}
-                    {promptVisible && !practiceComplete && (
-                      <Card className="bg-primary/5 border border-primary/10">
-                        <CardContent className="py-4 text-center">
-                          <p className="text-sm font-medium mb-1">Need a hint?</p>
-                          <p className="text-lg font-semibold">"{prompt}"</p>
-                        </CardContent>
-                      </Card>
-                    )}
-                    
-                    {/* Full script (shown only when requested) */}
-                    {showFullScript && (
-                      <div className="mt-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <h3 className="text-lg font-medium">Your Script</h3>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setShowFullScript(false)}
-                          >
-                            Hide Script
-                          </Button>
-                        </div>
-                        <div className="prose prose-sm max-w-none border border-border/50 rounded-md p-4 bg-secondary/20">
-                          <p className="whitespace-pre-line">{currentScript.content}</p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Practice controls */}
-                    <PracticeControls 
-                      script={currentScript.content}
-                      isListening={listening}
-                      transcript={transcript}
-                      onStart={startListening}
-                      onStop={handleEndPractice}
-                      onPause={handlePauseResume}
-                      onResume={handlePauseResume}
-                      onReset={resetTranscript}
-                      isPaused={isPaused}
-                    />
-                  </CardContent>
-                </Card>
+            <div className="flex flex-col items-center space-y-8">
+              <div className="w-full py-6">
+                <AudioWaveform isListening={listening && !isPaused} />
               </div>
               
-              <div>
+              <div className="w-full max-w-2xl mx-auto">
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="text-center">
                     <CardTitle>Your Speech</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="max-h-[400px] overflow-auto bg-muted/30 p-3 rounded-md mb-4">
-                      <p className="whitespace-pre-line">{transcript || "Start speaking..."}</p>
+                    <div className="max-h-[200px] overflow-auto bg-muted/30 p-3 rounded-md mb-4">
+                      <p className="whitespace-pre-line text-center">{transcript || "Start speaking..."}</p>
                     </div>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter className="flex justify-center">
                     <Button 
                       onClick={resetTranscript} 
                       variant="outline" 
-                      className="w-full"
                       disabled={practiceComplete}
                     >
                       Clear Speech
@@ -394,12 +311,55 @@ const Practice = () => {
                   </CardFooter>
                 </Card>
               </div>
+              
+              {showFullScript && (
+                <div className="w-full max-w-2xl mx-auto mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-medium">Your Script</h3>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowFullScript(false)}
+                    >
+                      Hide Script
+                    </Button>
+                  </div>
+                  <div className="prose prose-sm max-w-none border border-border/50 rounded-md p-4 bg-secondary/20">
+                    <p className="whitespace-pre-line text-center">{currentScript.content}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="w-full max-w-xl mx-auto py-4 fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-sm border-t border-border/50">
+                <div className="container mx-auto px-4">
+                  <PracticeControls 
+                    script={currentScript.content}
+                    isListening={listening}
+                    transcript={transcript}
+                    onStart={startListening}
+                    onStop={handleEndPractice}
+                    onPause={handlePauseResume}
+                    onResume={handlePauseResume}
+                    onReset={resetTranscript}
+                    isPaused={isPaused}
+                  />
+                </div>
+              </div>
+              
+              {promptVisible && !practiceComplete && (
+                <div className="fixed inset-0 bg-background/70 backdrop-blur-md flex items-center justify-center z-50">
+                  <div className="text-center p-8 max-w-2xl mx-auto animate-fade-in">
+                    <p className="text-muted-foreground mb-2">Need a hint?</p>
+                    <p className="text-3xl font-bold mb-4">"{prompt}"</p>
+                    <p className="text-sm text-muted-foreground">Speak these words to continue</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </main>
       
-      {/* Confirm end practice dialog */}
       <AlertDialog open={confirmEndDialogOpen} onOpenChange={setConfirmEndDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

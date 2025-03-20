@@ -90,8 +90,8 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
       // Draw the waveform as a smooth curve
       canvasCtx.beginPath();
       
-      // Start path at the left edge
-      canvasCtx.moveTo(0, HEIGHT);
+      // Start path at the left edge, but not at the bottom (to avoid the box effect)
+      canvasCtx.moveTo(0, HEIGHT - (dataArray[0] / 255) * HEIGHT * 0.8);
       
       // Calculate bar width based on available data points
       const barWidth = (WIDTH / dataArray.length) * 2.5;
@@ -118,9 +118,28 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
         x += barWidth;
       }
       
-      // Complete the path back to bottom right and then to bottom left
-      canvasCtx.lineTo(WIDTH, HEIGHT);
-      canvasCtx.lineTo(0, HEIGHT);
+      // Don't complete the path to the bottom to avoid the box look
+      // Instead, create a mirror effect for the bottom half
+      
+      // Add the mirrored waveform (inverse of the top part)
+      for (let i = dataArray.length - 1; i >= 0; i--) {
+        const barHeight = (dataArray[i] / 255) * HEIGHT * 0.8;
+        const y = HEIGHT / 2 + barHeight / 2; // Mirror effect centered on middle
+        
+        x -= barWidth;
+        
+        if (i === dataArray.length - 1) {
+          canvasCtx.lineTo(x, y);
+        } else {
+          const nextX = x + barWidth;
+          canvasCtx.quadraticCurveTo(
+            nextX - barWidth / 2,
+            HEIGHT / 2 + (dataArray[i+1] / 255) * HEIGHT * 0.4,
+            x,
+            y
+          );
+        }
+      }
       
       // Fill with gradient
       canvasCtx.fillStyle = gradient;
@@ -148,13 +167,13 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
   }, [analyser, dataArray]);
 
   return (
-    <div className="relative w-full h-32 overflow-hidden rounded-lg">
+    <div className="relative w-full max-w-3xl mx-auto h-40 overflow-hidden">
       {isListening ? (
         <canvas 
           ref={canvasRef} 
           className="w-full h-full" 
-          width={500} 
-          height={128}
+          width={800} 
+          height={200}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center">
