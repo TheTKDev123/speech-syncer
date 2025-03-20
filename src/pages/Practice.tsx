@@ -272,7 +272,7 @@ const Practice = () => {
                 onPracticeSection={handlePracticeSection}
               />
               
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 justify-center">
                 <Button onClick={handleStartNewPractice}>
                   Start New Practice
                 </Button>
@@ -286,7 +286,7 @@ const Practice = () => {
             </div>
           ) : (
             <div className="flex flex-col items-center space-y-8">
-              <div className="w-full py-6">
+              <div className="w-full max-w-2xl mx-auto">
                 <AudioWaveform isListening={listening && !isPaused} />
               </div>
               
@@ -300,15 +300,6 @@ const Practice = () => {
                       <p className="whitespace-pre-line text-center">{transcript || "Start speaking..."}</p>
                     </div>
                   </CardContent>
-                  <CardFooter className="flex justify-center">
-                    <Button 
-                      onClick={resetTranscript} 
-                      variant="outline" 
-                      disabled={practiceComplete}
-                    >
-                      Clear Speech
-                    </Button>
-                  </CardFooter>
                 </Card>
               </div>
               
@@ -345,20 +336,19 @@ const Practice = () => {
                   />
                 </div>
               </div>
-              
-              {promptVisible && !practiceComplete && (
-                <div className="fixed inset-0 bg-background/70 backdrop-blur-md flex items-center justify-center z-50">
-                  <div className="text-center p-8 max-w-2xl mx-auto animate-fade-in">
-                    <p className="text-muted-foreground mb-2">Need a hint?</p>
-                    <p className="text-3xl font-bold mb-4">"{prompt}"</p>
-                    <p className="text-sm text-muted-foreground">Speak these words to continue</p>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
       </main>
+      
+      {promptVisible && !practiceComplete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(26, 31, 44, 0.85)', backdropFilter: 'blur(8px)' }}>
+          <div className="text-center p-8 max-w-4xl mx-auto animate-fade-in">
+            <p className="text-4xl font-bold mb-6 text-white">{prompt}</p>
+            <p className="text-sm text-white/70">Speak these words to continue</p>
+          </div>
+        </div>
+      )}
       
       <AlertDialog open={confirmEndDialogOpen} onOpenChange={setConfirmEndDialogOpen}>
         <AlertDialogContent>
