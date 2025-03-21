@@ -101,34 +101,41 @@ const AudioWaveform: React.FC<AudioWaveformProps> = ({ isListening }) => {
       bottomGradient.addColorStop(0.5, '#D946EF'); // Pink
       bottomGradient.addColorStop(1, '#F97316');   // Orange
       
+      // Set threshold for sound visualization (0-255)
+      const threshold = 40; // Only show significant sounds
+      
+      // Draw a thin line in the center when quiet
+      canvasCtx.fillStyle = 'rgba(229, 231, 235, 0.5)'; // Light gray line
+      canvasCtx.fillRect(0, centerY - 0.5, WIDTH, 1);
+      
       // Draw each bar of the waveform
       for (let i = 0; i < barCount; i++) {
         // For visual interest, we'll use a multiplier that changes across the width
         const multiplier = 0.8 + Math.sin(i / barCount * Math.PI) * 0.3;
         
-        // Calculate bar height based on frequency data
-        const scaledData = dataArray[i] * multiplier;
-        const barHeight = (scaledData / 255) * (HEIGHT / 2 - 10);
+        // Calculate bar height based on frequency data with threshold
+        const rawValue = dataArray[i];
         
-        // Position of this bar
-        const x = (barWidth + barSpacing) * i;
-        
-        // Add glow effect
-        canvasCtx.shadowColor = '#D946EF';
-        canvasCtx.shadowBlur = 5;
-        
-        // Draw top part of the waveform (going up from center)
-        canvasCtx.fillStyle = topGradient;
-        canvasCtx.fillRect(x, centerY - barHeight, barWidth, barHeight);
-        
-        // Draw bottom part of the waveform (going down from center)
-        canvasCtx.fillStyle = bottomGradient;
-        canvasCtx.fillRect(x, centerY, barWidth, barHeight);
-        
-        // Add white line in the center for the "flat line" effect when quiet
-        if (i % 4 === 0) {
-          canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-          canvasCtx.fillRect(x, centerY - 0.5, barWidth, 1);
+        // Only draw bars if the sound is above the threshold
+        if (rawValue > threshold) {
+          const valueAboveThreshold = rawValue - threshold;
+          const scaledData = valueAboveThreshold * multiplier;
+          const barHeight = (scaledData / (255 - threshold)) * (HEIGHT / 2 - 10);
+          
+          // Position of this bar
+          const x = (barWidth + barSpacing) * i;
+          
+          // Add glow effect
+          canvasCtx.shadowColor = '#D946EF';
+          canvasCtx.shadowBlur = 5;
+          
+          // Draw top part of the waveform (going up from center)
+          canvasCtx.fillStyle = topGradient;
+          canvasCtx.fillRect(x, centerY - barHeight, barWidth, barHeight);
+          
+          // Draw bottom part of the waveform (going down from center)
+          canvasCtx.fillStyle = bottomGradient;
+          canvasCtx.fillRect(x, centerY, barWidth, barHeight);
         }
       }
       
