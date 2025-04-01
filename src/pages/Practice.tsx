@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
@@ -37,16 +38,19 @@ const Practice = () => {
   const [pauseData, setPauseData] = useState<PauseData[]>([]);
   const [showFullScript, setShowFullScript] = useState(false);
   const [confirmEndDialogOpen, setConfirmEndDialogOpen] = useState(false);
+  const [debugPromptTimer, setDebugPromptTimer] = useState<number>(0);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pauseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const practiceStartTimeRef = useRef<number>(0);
   const lastWordIndexRef = useRef<number>(0);
+  const promptTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const { transcript, listening, startListening, stopListening, resetTranscript, error } = useSpeechRecognition();
   const { toast } = useToast();
   const navigate = useNavigate();
   
+  // Load script from localStorage
   useEffect(() => {
     const savedScript = localStorage.getItem('currentPracticeScript');
     if (savedScript) {
@@ -70,6 +74,7 @@ const Practice = () => {
     }
   }, [navigate, toast]);
   
+  // Practice duration timer
   useEffect(() => {
     if (currentScript && !practiceComplete) {
       practiceStartTimeRef.current = Date.now();
@@ -88,8 +93,10 @@ const Practice = () => {
     };
   }, [currentScript, isPaused, practiceComplete]);
   
+  // Start/stop speech recognition
   useEffect(() => {
     if (currentScript && !listening && !isPaused && !practiceComplete) {
+      console.log("Starting listening...");
       startListening();
       setLastRecordedTime(Date.now());
     }
@@ -99,10 +106,20 @@ const Practice = () => {
       if (pauseTimerRef.current) {
         clearTimeout(pauseTimerRef.current);
       }
+      if (promptTimerRef.current) {
+        clearTimeout(promptTimerRef.current);
+      }
     };
   }, [currentScript, listening, isPaused, practiceComplete, startListening, stopListening]);
   
+  // Handle transcript updates and prompt display
   useEffect(() => {
+    // Clear any existing prompt timers
+    if (promptTimerRef.current) {
+      clearTimeout(promptTimerRef.current);
+      promptTimerRef.current = null;
+    }
+    
     if (error) {
       toast({
         title: "Speech Recognition Error",
@@ -113,26 +130,30 @@ const Practice = () => {
     }
     
     if (listening && currentScript && !practiceComplete) {
-      if (pauseTimerRef.current) {
-        clearTimeout(pauseTimerRef.current);
-      }
-      
+      // Update last recorded time when we get transcript
       if (transcript) {
         setLastRecordedTime(Date.now());
         setPromptVisible(false);
       }
       
-      pauseTimerRef.current = setTimeout(() => {
+      // Set a timer to check for silence and show prompt if needed
+      promptTimerRef.current = setTimeout(() => {
         const currentTime = Date.now();
         const timeSinceLastActivity = currentTime - lastRecordedTime;
         
-        if (timeSinceLastActivity >= 10000 && listening && currentScript) {
+        console.log(`Time since last activity: ${timeSinceLastActivity}ms`);
+        setDebugPromptTimer(timeSinceLastActivity);
+        
+        // If 5 seconds (5000ms) of silence detected, show the prompt
+        if (timeSinceLastActivity >= 5000 && !promptVisible) {
+          console.log("Showing prompt due to silence...");
           const scriptContent = currentScript.content;
           const words = scriptContent.split(/\s+/);
           
           const transcriptWords = transcript.toLowerCase().split(/\s+/);
           let matchIndex = 0;
           
+          // Find where in the script the user might be
           for (let i = 0; i < words.length; i++) {
             const scriptWord = words[i].toLowerCase().replace(/[.,!?;:]/g, '');
             const lastFewWords = transcriptWords.slice(-20);
@@ -142,33 +163,37 @@ const Practice = () => {
             }
           }
           
+          // Store pause data
           const newPauseData = [...pauseData, {
             index: matchIndex,
             duration: timeSinceLastActivity
           }];
           setPauseData(newPauseData);
           
+          // Create prompt text - next few words after their last recognized word
           const nextIndex = matchIndex + 1;
           lastWordIndexRef.current = nextIndex;
           const promptWords = words.slice(nextIndex, nextIndex + 5).join(' ');
           setPrompt(promptWords);
           setPromptVisible(true);
         }
-      }, 10000);
+      }, 5000); // Check every 5 seconds
     }
     
     return () => {
-      if (pauseTimerRef.current) {
-        clearTimeout(pauseTimerRef.current);
+      if (promptTimerRef.current) {
+        clearTimeout(promptTimerRef.current);
+        promptTimerRef.current = null;
       }
     };
-  }, [transcript, listening, currentScript, lastRecordedTime, pauseData, error, toast, practiceComplete]);
+  }, [transcript, listening, currentScript, lastRecordedTime, pauseData, error, toast, practiceComplete, promptVisible]);
   
   const handlePauseResume = () => {
     if (isPaused) {
       setIsPaused(false);
       startListening();
       setLastRecordedTime(Date.now());
+      setPromptVisible(false);
     } else {
       setIsPaused(true);
       stopListening();
@@ -186,8 +211,13 @@ const Practice = () => {
       clearInterval(timerRef.current);
     }
     
+    if (promptTimerRef.current) {
+      clearTimeout(promptTimerRef.current);
+    }
+    
     setPracticeComplete(true);
     setConfirmEndDialogOpen(false);
+    setPromptVisible(false);
     
     if (currentScript) {
       const scripts = JSON.parse(localStorage.getItem('scripts') || '[]');
@@ -215,6 +245,7 @@ const Practice = () => {
     setPracticeDuration(0);
     practiceStartTimeRef.current = Date.now();
     lastWordIndexRef.current = 0;
+    setPromptVisible(false);
     
     startListening();
   };
@@ -341,11 +372,19 @@ const Practice = () => {
         </div>
       </main>
       
+      {/* Prompt overlay - Improved with strong backdrop filter and larger text */}
       {promptVisible && !practiceComplete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(26, 31, 44, 0.85)', backdropFilter: 'blur(8px)' }}>
-          <div className="text-center p-8 max-w-4xl mx-auto animate-fade-in">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center" 
+          style={{ 
+            backgroundColor: 'rgba(26, 31, 44, 0.85)', 
+            backdropFilter: 'blur(8px)'
+          }}
+        >
+          <div className="text-center p-8 max-w-4xl mx-auto animate-in fade-in-0 zoom-in-95 duration-300">
             <p className="text-4xl font-bold mb-6 text-white">{prompt}</p>
             <p className="text-sm text-white/70">Speak these words to continue</p>
+            <p className="text-xs text-white/50 mt-4">{debugPromptTimer}ms since last detected speech</p>
           </div>
         </div>
       )}
